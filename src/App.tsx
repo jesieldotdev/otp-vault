@@ -6,6 +6,7 @@ import { AddForm } from './components/AddForm'
 import { SyncTab } from './components/SyncTab'
 import { Toast } from './components/Toast'
 import { useToast } from './hooks/useToast'
+import { useJsonBinSync } from './hooks/useJsonBinSync'
 
 export default function App() {
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -13,12 +14,10 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('codes')
   const [copied, setCopied] = useState<string | null>(null)
   const { message, fire } = useToast()
+  const sync = useJsonBinSync()
 
   const addAccount = useCallback((data: Omit<Account, 'id'>) => {
-    setAccounts((prev) => [
-      ...prev,
-      { ...data, id: crypto.randomUUID() },
-    ])
+    setAccounts((prev) => [...prev, { ...data, id: crypto.randomUUID() }])
     setAdding(false)
     fire('✓ Conta adicionada!')
   }, [fire])
@@ -43,39 +42,29 @@ export default function App() {
     return news.length
   }, [accounts])
 
+  // Replace all accounts (used by JSONBin pull)
+  const replaceAccounts = useCallback((incoming: Account[]) => {
+    setAccounts(incoming)
+    setTab('codes')
+  }, [])
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <Toast message={message} />
 
       {/* Header */}
-      <header style={{
-        width: '100%',
-        maxWidth: 520,
-        padding: '28px 20px 14px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}>
+      <header style={{ width: '100%', maxWidth: 520, padding: '28px 20px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 10,
-            background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16,
-          }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg, #6366f1, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Shield size={20} color="#fff" />
           </div>
-          <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-.01em' }}>
-            OTP Vault
-          </span>
+          <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-.01em' }}>OTP Vault</span>
         </div>
 
         <button
           onClick={() => setAdding((v) => !v)}
           style={{
-            background: adding
-              ? 'rgba(99,102,241,.15)'
-              : 'linear-gradient(135deg, #6366f1, #a855f7)',
+            background: adding ? 'rgba(99,102,241,.15)' : 'linear-gradient(135deg, #6366f1, #a855f7)',
             border: adding ? '1px solid rgba(99,102,241,.4)' : 'none',
             color: '#fff',
             borderRadius: 'var(--radius-sm)',
@@ -90,7 +79,7 @@ export default function App() {
             gap: 6,
           }}
         >
-          {adding ? <X size={16} style={{ marginRight: 4 }} /> : <Plus size={16} style={{ marginRight: 4 }} />}
+          {adding ? <X size={16} /> : <Plus size={16} />}
           {adding ? 'Cancelar' : 'Adicionar'}
         </button>
       </header>
@@ -114,27 +103,22 @@ export default function App() {
               display: 'flex',
               alignItems: 'center',
               gap: 6,
+              position: 'relative',
             }}
           >
-            {t === 'codes' ? <KeyRound size={14} style={{ marginRight: 4 }} /> : <RefreshCw size={14} style={{ marginRight: 4 }} />}
+            {t === 'codes' ? <KeyRound size={14} /> : <RefreshCw size={14} style={sync.status === 'syncing' ? { animation: 'spin 1s linear infinite' } : {}} />}
             {t === 'codes' ? 'Códigos' : 'Sincronizar'}
+            {/* Dot indicator when connected */}
+            {t === 'sync' && sync.config?.apiKey && (
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: sync.status === 'error' ? '#f43f5e' : '#10b981', flexShrink: 0 }} />
+            )}
           </button>
         ))}
       </nav>
 
       {/* Content */}
-      <main style={{
-        width: '100%',
-        maxWidth: 520,
-        padding: '0 16px 48px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-        flex: 1,
-      }}>
-        {adding && (
-          <AddForm onAdd={addAccount} onCancel={() => setAdding(false)} />
-        )}
+      <main style={{ width: '100%', maxWidth: 520, padding: '0 16px 48px', display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+        {adding && <AddForm onAdd={addAccount} onCancel={() => setAdding(false)} />}
 
         {tab === 'codes' && (
           accounts.length === 0 && !adding ? (
@@ -142,10 +126,7 @@ export default function App() {
               <div style={{ fontSize: 56, marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
                 <Shield size={48} color="#a5b4fc" />
               </div>
-              <div style={{
-                fontWeight: 700, fontSize: 16,
-                color: 'rgba(255,255,255,.35)', marginBottom: 8,
-              }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: 'rgba(255,255,255,.35)', marginBottom: 8 }}>
                 Nenhuma conta ainda
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>
@@ -169,10 +150,14 @@ export default function App() {
           <SyncTab
             accounts={accounts}
             onImport={importAccounts}
+            onReplace={replaceAccounts}
             onToast={fire}
+            sync={sync}
           />
         )}
       </main>
+
+      <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>
   )
 }
