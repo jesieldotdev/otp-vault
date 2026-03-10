@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect} from 'react'
 import { Shield, KeyRound, RefreshCw, Plus, X } from 'lucide-react'
 import type { Account, Tab } from './types'
 import { AccountCard } from './components/AccountCard'
@@ -9,7 +9,21 @@ import { useToast } from './hooks/useToast'
 import { useJsonBinSync } from './hooks/useJsonBinSync'
 
 export default function App() {
-  const [accounts, setAccounts] = useState<Account[]>([])
+  // Persistência localStorage
+  const LS_KEY = 'otp_vault_accounts'
+  const [accounts, setAccounts] = useState<Account[]>(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY)
+      if (!raw) return []
+      return JSON.parse(raw) as Account[]
+    } catch {
+      return []
+    }
+  })
+  // Salva no localStorage sempre que accounts mudar
+  useEffect(() => {
+    localStorage.setItem(LS_KEY, JSON.stringify(accounts))
+  }, [accounts])
   const [adding, setAdding] = useState(false)
   const [tab, setTab] = useState<Tab>('codes')
   const [copied, setCopied] = useState<string | null>(null)
