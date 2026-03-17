@@ -151,6 +151,13 @@ export default function App() {
         )}
       </main>
 
+      {/* Version badge */}
+      <div style={{ width: '100%', maxWidth: 520, padding: '0 16px 16px', display: 'flex', justifyContent: 'flex-end' }}>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.12)', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>
+          v{__APP_VERSION__} · {__BUILD_HASH__}
+        </span>
+      </div>
+
       <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
     </div>
   )

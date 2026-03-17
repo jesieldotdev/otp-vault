@@ -10,8 +10,7 @@
     "dev:ext": "yarn workspace @otp-vault/extension dev",
     "build:web": "yarn workspace @otp-vault/web build",
     "build:ext": "yarn workspace @otp-vault/extension build",
-    "build": "yarn build:web && yarn build:ext",
-    "deploy": "vercel --prod"
+    "build": "yarn build:web && yarn build:ext"
   },
   "resolutions": {
     "react": "^18.2.0",
@@ -21,8 +20,5 @@
   "devDependencies": {
     "typescript": "^5.2.2"
   },
-  "packageManager": "yarn@4.9.1",
-  "dependencies": {
-    "vercel": "^50.33.0"
-  }
+  "packageManager": "yarn@4.9.1"
 }
