@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Copy, X } from 'lucide-react'
+import { Check, Copy, X, Trash2 } from 'lucide-react'
 import type { Account } from '../types'
 import { useTotp } from '../hooks/useTotp'
 import { pickColor } from '../utils/color'
@@ -17,6 +17,7 @@ export function AccountCard({ account, onDelete, onCopy, justCopied }: AccountCa
   const color = pickColor(account.issuer + account.label)
   const initial = (account.issuer || account.label || '?')[0].toUpperCase()
   const [hovered, setHovered] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   return (
     <article
@@ -93,31 +94,62 @@ export function AccountCard({ account, onDelete, onCopy, justCopied }: AccountCa
       {/* Controls */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
         <Ring rem={rem} period={account.period} color={color} />
-        <div style={{ display: 'flex', gap: 5 }}>
-          <IconButton
-            title="Copiar código"
-            onClick={() => onCopy(account.id, code)}
-            style={{
-              background: justCopied ? color + '25' : 'rgba(255,255,255,0.05)',
-              borderColor: justCopied ? color + '60' : 'rgba(255,255,255,0.1)',
-              color: justCopied ? color : 'rgba(255,255,255,0.45)',
-            }}
-          >
-            {justCopied ? <Check size={16} /> : <Copy size={16} />}
-          </IconButton>
-          <IconButton
-            title="Remover conta"
-            onClick={() => onDelete(account.id)}
-            style={{
-              background: 'rgba(244,63,94,0.08)',
-              borderColor: 'rgba(244,63,94,0.2)',
-              color: 'rgba(244,63,94,0.6)',
-            }}
-            hoverColor="var(--danger)"
-          >
-            <X size={16} />
-          </IconButton>
-        </div>
+        {confirming ? (
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: 'var(--danger)', marginRight: 4 }}>Excluir?</span>
+            <IconButton
+              title="Confirmar exclusão"
+              onClick={() => {
+                onDelete(account.id)
+                setConfirming(false)
+              }}
+              style={{
+                background: 'rgba(244,63,94,0.15)',
+                borderColor: 'rgba(244,63,94,0.4)',
+                color: 'var(--danger)',
+              }}
+            >
+              <Trash2 size={16} />
+            </IconButton>
+            <IconButton
+              title="Cancelar"
+              onClick={() => setConfirming(false)}
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                borderColor: 'rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.45)',
+              }}
+            >
+              <X size={16} />
+            </IconButton>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 5 }}>
+            <IconButton
+              title="Copiar código"
+              onClick={() => onCopy(account.id, code)}
+              style={{
+                background: justCopied ? color + '25' : 'rgba(255,255,255,0.05)',
+                borderColor: justCopied ? color + '60' : 'rgba(255,255,255,0.1)',
+                color: justCopied ? color : 'rgba(255,255,255,0.45)',
+              }}
+            >
+              {justCopied ? <Check size={16} /> : <Copy size={16} />}
+            </IconButton>
+            <IconButton
+              title="Remover conta"
+              onClick={() => setConfirming(true)}
+              style={{
+                background: 'rgba(244,63,94,0.08)',
+                borderColor: 'rgba(244,63,94,0.2)',
+                color: 'rgba(244,63,94,0.6)',
+              }}
+              hoverColor="var(--danger)"
+            >
+              <X size={16} />
+            </IconButton>
+          </div>
+        )}
       </div>
     </article>
   )
