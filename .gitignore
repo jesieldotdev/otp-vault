@@ -7,3 +7,5 @@ dist-ssr
 !.env.example
 .yarn
 .pnp
+.vercel
+.env*.local
