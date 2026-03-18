@@ -4,17 +4,13 @@
       <stop offset="0%" stop-color="#6366f1"/>
       <stop offset="100%" stop-color="#a855f7"/>
     </linearGradient>
-    <clipPath id="c">
-      <rect width="128" height="128" rx="28" ry="28"/>
-    </clipPath>
   </defs>
   <!-- Background -->
   <rect width="128" height="128" rx="28" fill="url(#g)"/>
-  <!-- Shackle -->
-  <path d="M44 58 V46 a20 20 0 0 1 40 0 V58" fill="none" stroke="white" stroke-width="11" stroke-linecap="round"/>
-  <!-- Body -->
-  <rect x="30" y="58" width="68" height="46" rx="10" fill="white" opacity="0.92"/>
-  <!-- Keyhole -->
-  <circle cx="64" cy="79" r="9" fill="#6366f1"/>
-  <rect x="60" y="83" width="8" height="13" rx="2" fill="#6366f1"/>
+  <!-- Shield outline -->
+  <path d="M64 18 L100 32 V60 C100 82 82 100 64 110 C46 100 28 82 28 60 V32 Z" fill="white" opacity="0.95"/>
+  <!-- Inner shield -->
+  <path d="M64 26 L92 38 V58 C92 76 78 92 64 100 C50 92 36 76 36 58 V38 Z" fill="url(#g)"/>
+  <!-- OTP digits -->
+  <text x="64" y="72" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" font-weight="bold" fill="white">2FA</text>
 </svg>

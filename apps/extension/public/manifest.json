@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OTP Vault",
-  "version": "2.0.0",
+  "version": "2.2.0",
   "description": "Autenticador TOTP offline com sincronização via JSONBin",
   "icons": {
     "16": "icons/icon16.png",
