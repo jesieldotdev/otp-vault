@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import { Cloud, CloudOff, RefreshCw, Upload, Download, Eye, EyeOff, Unlink, ExternalLink, Check, Shield } from 'lucide-react'
 import { useStorage, useToast, pushToBin, pullFromBin, encryptVault, decryptVault, sanitizeBinId } from '@otp-vault/core'
 import { Toast } from '@otp-vault/core'
-import type { Account, JsonBinConfig } from '@otp-vault/core'
+import type { Account, PasswordEntry, JsonBinConfig, VaultPayload } from '@otp-vault/core'
 
-const ACCOUNTS_KEY = 'otp_vault_accounts'
-const CONFIG_KEY   = 'otp_vault_jsonbin_config'
+const ACCOUNTS_KEY  = 'otp_vault_accounts'
+const PASSWORDS_KEY = 'otp_vault_passwords_enc'
+const CONFIG_KEY    = 'otp_vault_jsonbin_config'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
@@ -87,9 +88,31 @@ export default function OptionsPage() {
     if (!password || !savedConfig) return
     setSyncing(true); setSyncStatus('idle'); setSyncError('')
     try {
-      const raw = await storage.local.get(ACCOUNTS_KEY)
-      const accounts: Account[] = raw ? JSON.parse(raw) : []
-      const encrypted = await encryptVault(accounts.map(({ id: _id, ...r }) => r), password)
+      // Carregar contas
+      const rawAccounts = await storage.local.get(ACCOUNTS_KEY)
+      const accounts: Account[] = rawAccounts ? JSON.parse(rawAccounts) : []
+      
+      // Carregar senhas (já criptografadas - precisamos descriptografar primeiro)
+      let passwords: PasswordEntry[] = []
+      const rawPasswords = await storage.local.get(PASSWORDS_KEY)
+      if (rawPasswords) {
+        try {
+          const decryptedPw = await decryptVault(rawPasswords, password)
+          if (Array.isArray(decryptedPw)) {
+            passwords = decryptedPw as PasswordEntry[]
+          }
+        } catch {
+          // Senha errada para as senhas locais - ignorar ou avisar
+        }
+      }
+      
+      // Criar payload combinado
+      const payload: VaultPayload = {
+        accounts: accounts.map(({ id: _id, ...r }) => r),
+        passwords: passwords.map(({ id: _id, ...r }) => r),
+      }
+      
+      const encrypted = await encryptVault(payload, password)
       const result = await pushToBin(savedConfig, encrypted)
       if (!result.ok) throw new Error(result.error)
       if (result.binId && result.binId !== savedConfig.binId) {
@@ -97,7 +120,7 @@ export default function OptionsPage() {
         await storage.sync.set(CONFIG_KEY, JSON.stringify(updated))
         setSavedConfig(updated); setBinId(result.binId)
       }
-      setSyncStatus('ok'); fire('☁️ Vault enviada!')
+      setSyncStatus('ok'); fire(`☁️ Vault enviada (${accounts.length} contas, ${passwords.length} senhas)!`)
     } catch (e) { setSyncError(e instanceof Error ? e.message : 'Erro'); setSyncStatus('error') }
     setSyncing(false)
   }
@@ -109,14 +132,48 @@ export default function OptionsPage() {
       const result = await pullFromBin(savedConfig)
       if (!result.ok || !result.payload) throw new Error(result.error)
       const decrypted = await decryptVault(result.payload, password)
-      if (!Array.isArray(decrypted)) throw new Error('Formato inválido')
-      const accounts = (decrypted as Record<string, unknown>[]).map((a) => ({
+      
+      // Compatibilidade: formato antigo (array) vs novo (VaultPayload)
+      let rawAccounts: Record<string, unknown>[]
+      let rawPasswords: Record<string, unknown>[] = []
+      
+      if (Array.isArray(decrypted)) {
+        // Formato antigo
+        rawAccounts = decrypted as Record<string, unknown>[]
+      } else if (typeof decrypted === 'object' && decrypted !== null) {
+        // Formato novo
+        const payload = decrypted as { accounts?: unknown[]; passwords?: unknown[] }
+        rawAccounts = (payload.accounts ?? []) as Record<string, unknown>[]
+        rawPasswords = (payload.passwords ?? []) as Record<string, unknown>[]
+      } else {
+        throw new Error('Formato inválido')
+      }
+      
+      // Processar contas
+      const accounts = rawAccounts.map((a) => ({
         id: crypto.randomUUID(),
         issuer: String(a.issuer ?? ''), label: String(a.label ?? ''),
         secret: String(a.secret ?? ''), period: Number(a.period ?? 30), digits: Number(a.digits ?? 6),
       }))
       await storage.local.set(ACCOUNTS_KEY, JSON.stringify(accounts))
-      setSyncStatus('ok'); fire(`☁️ ${accounts.length} conta(s) carregadas! Reabra o popup.`)
+      
+      // Processar senhas (re-criptografar para salvar localmente)
+      if (rawPasswords.length > 0) {
+        const passwords = rawPasswords.map((p) => ({
+          id: crypto.randomUUID(),
+          title: String(p.title ?? ''),
+          username: String(p.username ?? ''),
+          password: String(p.password ?? ''),
+          url: String(p.url ?? ''),
+          notes: String(p.notes ?? ''),
+          createdAt: Number(p.createdAt ?? Date.now()),
+          updatedAt: Number(p.updatedAt ?? Date.now()),
+        }))
+        const encryptedPw = await encryptVault(passwords, password)
+        await storage.local.set(PASSWORDS_KEY, encryptedPw)
+      }
+      
+      setSyncStatus('ok'); fire(`☁️ ${accounts.length} conta(s) + ${rawPasswords.length} senha(s) carregadas! Reabra o popup.`)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erro'
       setSyncError(msg.includes('decrypt') || msg.includes('operation') ? 'Senha incorreta.' : msg)
