@@ -11,7 +11,11 @@
     "build:web": "yarn workspace @otp-vault/web build",
     "build:ext": "yarn workspace @otp-vault/extension build",
     "build": "yarn build:web && yarn build:ext",
-    "deploy:ext": "yarn dlx vercel --prod"
+    "deploy:ext": "yarn dlx vercel --prod",
+    "version:sync": "node scripts/sync-version.mjs",
+    "version:patch": "node scripts/sync-version.mjs patch",
+    "version:minor": "node scripts/sync-version.mjs minor",
+    "version:major": "node scripts/sync-version.mjs major"
   },
   "resolutions": {
     "react": "^18.2.0",
