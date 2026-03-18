@@ -10,7 +10,8 @@
     "dev:ext": "yarn workspace @otp-vault/extension dev",
     "build:web": "yarn workspace @otp-vault/web build",
     "build:ext": "yarn workspace @otp-vault/extension build",
-    "build": "yarn build:web && yarn build:ext"
+    "build": "yarn build:web && yarn build:ext",
+    "deploy:ext": "yarn dlx vercel --prod"
   },
   "resolutions": {
     "react": "^18.2.0",
