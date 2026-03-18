@@ -5,7 +5,7 @@ import { encryptVault, decryptVault } from '../utils/crypto'
 
 const KEY = 'otp_vault_passwords_enc'
 
-export type PasswordVaultStatus = 'locked' | 'unlocked' | 'loading'
+export type PasswordVaultStatus = 'locked' | 'unlocked' | 'loading' | 'first-use'
 
 export function usePasswords() {
   const storage = useStorage()
@@ -18,7 +18,7 @@ export function usePasswords() {
   // On mount: check if vault exists
   useEffect(() => {
     storage.local.get(KEY).then((raw) => {
-      setStatus(raw ? 'locked' : 'unlocked') // no vault = first use, start unlocked
+      setStatus(raw ? 'locked' : 'first-use') // no vault = first use, need to set master password
     })
   }, [storage])
 

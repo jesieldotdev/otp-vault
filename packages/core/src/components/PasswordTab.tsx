@@ -60,6 +60,47 @@ export function PasswordTab({ entries, status, error, onUnlock, onLock, onAdd, o
     )
   }
 
+  // First use - need to set master password
+  if (status === 'first-use') {
+    return (
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
+        <div style={{ width: 52, height: 52, borderRadius: 16, background: 'linear-gradient(135deg,#10b981,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <KeyRound size={24} color="#fff" />
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>Configurar senha mestre</div>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6 }}>
+            Crie uma senha mestre para proteger suas senhas.<br />
+            <strong style={{ color: 'rgba(255,255,255,0.6)' }}>Use a mesma senha do JSONBin</strong> se for sincronizar.
+          </div>
+        </div>
+
+        <div style={{ width: '100%', position: 'relative' }}>
+          <input
+            style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#eef0f8', fontSize: 13, padding: '11px 44px 11px 14px', outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-sans)' }}
+            type={showUnlockPw ? 'text' : 'password'}
+            placeholder="Criar senha mestre"
+            value={unlockPw}
+            onChange={(e) => setUnlockPw(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
+            autoFocus
+          />
+          <button onClick={() => setShowUnlockPw(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', padding: 0 }}>
+            {showUnlockPw ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        </div>
+
+        <button onClick={handleUnlock} disabled={!unlockPw || unlocking || unlockPw.length < 4} style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: unlockPw && unlockPw.length >= 4 ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(255,255,255,0.07)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: unlockPw && unlockPw.length >= 4 ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+          <Unlock size={14} /> {unlocking ? 'Configurando…' : 'Definir senha'}
+        </button>
+
+        {unlockPw && unlockPw.length < 4 && (
+          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, margin: 0 }}>Mínimo 4 caracteres</p>
+        )}
+      </div>
+    )
+  }
+
   // Locked
   if (status === 'locked') {
     return (
