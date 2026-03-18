@@ -332,6 +332,13 @@ export default function OptionsPage() {
         </div>
       </div>
 
+      {/* Version badge */}
+      <div style={{ marginTop: 32, textAlign: 'center' }}>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
+          OTP Vault v{__APP_VERSION__}
+        </span>
+      </div>
+
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
         :root { --font-sans: 'Sora', system-ui, sans-serif; --font-mono: 'JetBrains Mono', monospace; }

@@ -74,7 +74,13 @@ function StatusBadge({ status, errorMsg }: { status: UseJsonBinSyncReturn['statu
 }
 
 function VersionBadge({ versionInfo }: { versionInfo: UseJsonBinSyncReturn['versionInfo'] }) {
-  if (!versionInfo) return null
+  if (!versionInfo) {
+    return (
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>
+        Nunca sincronizado
+      </span>
+    )
+  }
   
   const { localVersion, remoteSyncedAt, isOutdated, hasLocalChanges } = versionInfo
   
@@ -97,8 +103,8 @@ function VersionBadge({ versionInfo }: { versionInfo: UseJsonBinSyncReturn['vers
   if (localVersion && remoteSyncedAt) {
     const date = new Date(remoteSyncedAt)
     return (
-      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
-        v{localVersion} · {date.toLocaleDateString('pt-BR')} {date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'rgba(255,255,255,0.45)', background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '3px 10px' }}>
+        Vault v{localVersion} · {date.toLocaleDateString('pt-BR')}
       </span>
     )
   }
