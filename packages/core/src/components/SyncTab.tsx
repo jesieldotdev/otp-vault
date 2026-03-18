@@ -58,17 +58,52 @@ const btn = (active: boolean, gradient?: string): React.CSSProperties => ({
 
 function StatusBadge({ status, errorMsg }: { status: UseJsonBinSyncReturn['status']; errorMsg: string | null }) {
   if (status === 'idle') return null
-  const map = {
-    syncing: { icon: <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} />, label: 'Sincronizando…', color: '#a5b4fc' },
-    ok:      { icon: <CheckCircle size={12} />, label: 'Sincronizado', color: '#10b981' },
-    error:   { icon: <XCircle size={12} />, label: errorMsg ?? 'Erro', color: '#f87171' },
+  const map: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+    syncing:  { icon: <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} />, label: 'Sincronizando…', color: '#a5b4fc' },
+    checking: { icon: <Loader size={12} style={{ animation: 'spin 1s linear infinite' }} />, label: 'Verificando…', color: '#a5b4fc' },
+    ok:       { icon: <CheckCircle size={12} />, label: 'Sincronizado', color: '#10b981' },
+    error:    { icon: <XCircle size={12} />, label: errorMsg ?? 'Erro', color: '#f87171' },
   }
   const s = map[status]
+  if (!s) return null
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: s.color, background: s.color + '15', borderRadius: 20, padding: '3px 10px' }}>
       {s.icon} {s.label}
     </span>
   )
+}
+
+function VersionBadge({ versionInfo }: { versionInfo: UseJsonBinSyncReturn['versionInfo'] }) {
+  if (!versionInfo) return null
+  
+  const { localVersion, remoteSyncedAt, isOutdated, hasLocalChanges } = versionInfo
+  
+  if (isOutdated) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: '#f59e0b', background: 'rgba(245,158,11,0.15)', borderRadius: 20, padding: '3px 10px' }}>
+        <AlertTriangle size={12} /> Nova versão disponível
+      </span>
+    )
+  }
+  
+  if (hasLocalChanges) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: '#a5b4fc', background: 'rgba(165,180,252,0.15)', borderRadius: 20, padding: '3px 10px' }}>
+        Alterações não sincronizadas
+      </span>
+    )
+  }
+  
+  if (localVersion && remoteSyncedAt) {
+    const date = new Date(remoteSyncedAt)
+    return (
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+        v{localVersion} · {date.toLocaleDateString('pt-BR')} {date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+      </span>
+    )
+  }
+  
+  return null
 }
 
 export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswords, onReplaceAccounts, onReplacePasswords, onToast, sync }: SyncTabProps) {
@@ -122,7 +157,6 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
     setConfigErr('')
     const ok = await sync.push(accounts, passwords, password)
     if (ok) {
-      const total = accounts.length + passwords.length
       onToast(`✓ Vault enviada (${accounts.length} conta(s), ${passwords.length} senha(s))!`)
     }
   }
@@ -138,22 +172,30 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
     }
   }
 
+  const handleCheckVersion = async () => {
+    if (!password) return setConfigErr('Digite a senha mestre para verificar.')
+    setConfigErr('')
+    await sync.checkRemoteVersion(password)
+  }
+
   const isConfigured = !!sync.config?.apiKey
   const hasData = accounts.length > 0 || passwords.length > 0
   const canSync = isConfigured && hasData
+  const hasBinId = !!sync.config?.binId
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* ── JSONBin Cloud Sync ── */}
       <div style={{ ...cardStyle, border: isConfigured ? '1px solid rgba(99,102,241,0.35)' : '1px solid var(--border)', background: isConfigured ? 'rgba(99,102,241,0.06)' : 'var(--surface)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 7 }}>
             {isConfigured ? <Cloud size={16} color="#a5b4fc" /> : <CloudOff size={16} color="rgba(255,255,255,0.35)" />}
             Sync via JSONBin
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <StatusBadge status={sync.status} errorMsg={sync.errorMsg} />
+            <VersionBadge versionInfo={sync.versionInfo} />
             {isConfigured && (
               <button
                 onClick={() => { sync.disconnect(); setApiKeyInput(''); setBinIdInput('') }}
@@ -236,7 +278,7 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
                 <button
                   style={{ ...btn(canSync && !!password, 'linear-gradient(135deg,#6366f1,#a855f7)'), flex: 1 }}
                   onClick={handlePush}
-                  disabled={!canSync || !password || sync.status === 'syncing'}
+                  disabled={!canSync || !password || sync.status === 'syncing' || sync.status === 'checking'}
                 >
                   {sync.status === 'syncing'
                     ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Enviando…</>
@@ -244,9 +286,9 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
                   }
                 </button>
                 <button
-                  style={{ ...btn(isConfigured && !!password, 'linear-gradient(135deg,#06b6d4,#0891b2)'), flex: 1 }}
+                  style={{ ...btn(hasBinId && !!password, 'linear-gradient(135deg,#06b6d4,#0891b2)'), flex: 1 }}
                   onClick={handlePull}
-                  disabled={!isConfigured || !password || sync.status === 'syncing'}
+                  disabled={!hasBinId || !password || sync.status === 'syncing' || sync.status === 'checking'}
                 >
                   {sync.status === 'syncing'
                     ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Buscando…</>
@@ -254,6 +296,20 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
                   }
                 </button>
               </div>
+
+              {/* Botão verificar versão */}
+              {hasBinId && (
+                <button
+                  style={{ ...btn(!!password, 'transparent'), border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.03)' }}
+                  onClick={handleCheckVersion}
+                  disabled={!password || sync.status === 'syncing' || sync.status === 'checking'}
+                >
+                  {sync.status === 'checking'
+                    ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Verificando…</>
+                    : <><RefreshCw size={14} /> Verificar atualizações</>
+                  }
+                </button>
+              )}
 
               {sync.config?.binId && (
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', margin: 0, fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>

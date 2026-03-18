@@ -20,8 +20,24 @@ export interface PasswordEntry {
 
 /** Payload completo da vault para sync/export */
 export interface VaultPayload {
+  /** Metadados de sincronização */
+  meta?: {
+    version: number        // Incrementa a cada push
+    syncedAt: number       // Timestamp do último push
+    deviceId?: string      // ID do dispositivo que fez o push
+  }
   accounts: Omit<Account, 'id'>[]
   passwords: Omit<PasswordEntry, 'id'>[]
+}
+
+/** Status de sincronização com versão */
+export interface SyncVersionInfo {
+  localVersion: number | null
+  localSyncedAt: number | null
+  remoteVersion: number | null
+  remoteSyncedAt: number | null
+  isOutdated: boolean        // true se remote > local
+  hasLocalChanges: boolean   // true se houve mudanças desde último sync
 }
 
 export type Tab = 'codes' | 'passwords' | 'sync'

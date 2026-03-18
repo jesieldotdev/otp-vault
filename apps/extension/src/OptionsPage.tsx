@@ -7,6 +7,14 @@ import type { Account, PasswordEntry, JsonBinConfig, VaultPayload } from '@otp-v
 const ACCOUNTS_KEY  = 'otp_vault_accounts'
 const PASSWORDS_KEY = 'otp_vault_passwords_enc'
 const CONFIG_KEY    = 'otp_vault_jsonbin_config'
+const VERSION_KEY   = 'otp_vault_sync_version'
+const DEVICE_ID_KEY = 'otp_vault_device_id'
+
+interface LocalVersionMeta {
+  version: number
+  syncedAt: number
+  lastModifiedAt: number
+}
 
 const inputStyle: React.CSSProperties = {
   width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
@@ -35,16 +43,25 @@ export default function OptionsPage() {
   const [syncError, setSyncError]   = useState('')
   const [testing, setTesting]       = useState(false)
   const [testResult, setTestResult] = useState<'idle' | 'ok' | 'error'>('idle')
+  const [localMeta, setLocalMeta]   = useState<LocalVersionMeta | null>(null)
 
   useEffect(() => {
-    storage.sync.get(CONFIG_KEY).then((raw) => {
-      if (raw) {
+    Promise.all([
+      storage.sync.get(CONFIG_KEY),
+      storage.local.get(VERSION_KEY),
+    ]).then(([rawConfig, rawVersion]) => {
+      if (rawConfig) {
         try {
-          const cfg = JSON.parse(raw) as JsonBinConfig
+          const cfg = JSON.parse(rawConfig) as JsonBinConfig
           if (cfg.binId) cfg.binId = sanitizeBinId(cfg.binId)
           setSavedConfig(cfg)
           setApiKey(cfg.apiKey)
           setBinId(cfg.binId ?? '')
+        } catch {}
+      }
+      if (rawVersion) {
+        try {
+          setLocalMeta(JSON.parse(rawVersion) as LocalVersionMeta)
         } catch {}
       }
       setLoadingConfig(false)
@@ -106,8 +123,23 @@ export default function OptionsPage() {
         }
       }
       
-      // Criar payload combinado
+      // Obter deviceId
+      let deviceId = await storage.local.get(DEVICE_ID_KEY)
+      if (!deviceId) {
+        deviceId = crypto.randomUUID().slice(0, 8)
+        await storage.local.set(DEVICE_ID_KEY, deviceId)
+      }
+      
+      const now = Date.now()
+      const newVersion = (localMeta?.version ?? 0) + 1
+      
+      // Criar payload combinado com metadados de versão
       const payload: VaultPayload = {
+        meta: {
+          version: newVersion,
+          syncedAt: now,
+          deviceId,
+        },
         accounts: accounts.map(({ id: _id, ...r }) => r),
         passwords: passwords.map(({ id: _id, ...r }) => r),
       }
@@ -120,7 +152,13 @@ export default function OptionsPage() {
         await storage.sync.set(CONFIG_KEY, JSON.stringify(updated))
         setSavedConfig(updated); setBinId(result.binId)
       }
-      setSyncStatus('ok'); fire(`☁️ Vault enviada (${accounts.length} contas, ${passwords.length} senhas)!`)
+      
+      // Salvar metadados de versão
+      const newMeta: LocalVersionMeta = { version: newVersion, syncedAt: now, lastModifiedAt: now }
+      await storage.local.set(VERSION_KEY, JSON.stringify(newMeta))
+      setLocalMeta(newMeta)
+      
+      setSyncStatus('ok'); fire(`☁️ Vault v${newVersion} enviada (${accounts.length} contas, ${passwords.length} senhas)!`)
     } catch (e) { setSyncError(e instanceof Error ? e.message : 'Erro'); setSyncStatus('error') }
     setSyncing(false)
   }
@@ -136,15 +174,17 @@ export default function OptionsPage() {
       // Compatibilidade: formato antigo (array) vs novo (VaultPayload)
       let rawAccounts: Record<string, unknown>[]
       let rawPasswords: Record<string, unknown>[] = []
+      let remoteMeta: { version?: number; syncedAt?: number; deviceId?: string } | undefined
       
       if (Array.isArray(decrypted)) {
         // Formato antigo
         rawAccounts = decrypted as Record<string, unknown>[]
       } else if (typeof decrypted === 'object' && decrypted !== null) {
         // Formato novo
-        const payload = decrypted as { accounts?: unknown[]; passwords?: unknown[] }
+        const payload = decrypted as { accounts?: unknown[]; passwords?: unknown[]; meta?: typeof remoteMeta }
         rawAccounts = (payload.accounts ?? []) as Record<string, unknown>[]
         rawPasswords = (payload.passwords ?? []) as Record<string, unknown>[]
+        remoteMeta = payload.meta
       } else {
         throw new Error('Formato inválido')
       }
@@ -172,6 +212,16 @@ export default function OptionsPage() {
         const encryptedPw = await encryptVault(passwords, password)
         await storage.local.set(PASSWORDS_KEY, encryptedPw)
       }
+      
+      // Salvar metadados de versão
+      const now = Date.now()
+      const newMeta: LocalVersionMeta = {
+        version: remoteMeta?.version ?? 1,
+        syncedAt: now,
+        lastModifiedAt: now,
+      }
+      await storage.local.set(VERSION_KEY, JSON.stringify(newMeta))
+      setLocalMeta(newMeta)
       
       setSyncStatus('ok'); fire(`☁️ ${accounts.length} conta(s) + ${rawPasswords.length} senha(s) carregadas! Reabra o popup.`)
     } catch (e) {

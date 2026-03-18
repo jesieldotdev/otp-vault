@@ -24,13 +24,20 @@ export default function App() {
     addAccount(data)
     setAdding(false)
     fire('✓ Conta adicionada!')
-  }, [addAccount, fire])
+    sync.markLocalChanges()
+  }, [addAccount, fire, sync])
+
+  const handleDelete = useCallback((id: string) => {
+    deleteAccount(id)
+    sync.markLocalChanges()
+  }, [deleteAccount, sync])
 
   const handleImport = useCallback((incoming: Parameters<typeof importAccounts>[0]): number => {
     const count = importAccounts(incoming)
     setTab('codes')
+    if (count > 0) sync.markLocalChanges()
     return count
-  }, [importAccounts])
+  }, [importAccounts, sync])
 
   const handleReplace = useCallback((incoming: Parameters<typeof replaceAccounts>[0]) => {
     replaceAccounts(incoming)
@@ -38,12 +45,30 @@ export default function App() {
   }, [replaceAccounts])
 
   const handleImportPasswords = useCallback((incoming: Omit<PasswordEntry, 'id'>[]): number => {
-    return passwords.importEntries(incoming)
-  }, [passwords])
+    const count = passwords.importEntries(incoming)
+    if (count > 0) sync.markLocalChanges()
+    return count
+  }, [passwords, sync])
 
   const handleReplacePasswords = useCallback((incoming: PasswordEntry[]) => {
     passwords.replaceEntries(incoming)
   }, [passwords])
+
+  // Wrappers para senhas que marcam mudanças locais
+  const handleAddPassword = useCallback((data: Parameters<typeof passwords.addEntry>[0]) => {
+    passwords.addEntry(data)
+    sync.markLocalChanges()
+  }, [passwords, sync])
+
+  const handleUpdatePassword = useCallback((id: string, data: Parameters<typeof passwords.updateEntry>[1]) => {
+    passwords.updateEntry(id, data)
+    sync.markLocalChanges()
+  }, [passwords, sync])
+
+  const handleDeletePassword = useCallback((id: string) => {
+    passwords.deleteEntry(id)
+    sync.markLocalChanges()
+  }, [passwords, sync])
 
   const copyCode = useCallback((id: string, code: string) => {
     navigator.clipboard.writeText(code).catch(() => {})
@@ -134,7 +159,7 @@ export default function App() {
               </div>
             ) : (
               accounts.map((acc) => (
-                <AccountCard key={acc.id} account={acc} onDelete={deleteAccount} onCopy={copyCode} justCopied={copied === acc.id} />
+                <AccountCard key={acc.id} account={acc} onDelete={handleDelete} onCopy={copyCode} justCopied={copied === acc.id} />
               ))
             )}
           </>
@@ -147,9 +172,9 @@ export default function App() {
             error={passwords.error}
             onUnlock={passwords.unlock}
             onLock={passwords.lock}
-            onAdd={passwords.addEntry}
-            onUpdate={passwords.updateEntry}
-            onDelete={passwords.deleteEntry}
+            onAdd={handleAddPassword}
+            onUpdate={handleUpdatePassword}
+            onDelete={handleDeletePassword}
             onToast={fire}
           />
         )}

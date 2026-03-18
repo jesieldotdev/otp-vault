@@ -31,7 +31,7 @@ export { pickColor } from './utils/color'
 export { generatePassword, passwordStrength } from './utils/passwordGenerator'
 
 // Types
-export type { Account, PasswordEntry, Tab, VaultPayload } from './types'
+export type { Account, PasswordEntry, Tab, VaultPayload, SyncVersionInfo } from './types'
 export type { JsonBinConfig, UseJsonBinSyncReturn, SyncStatus, PulledVault } from './hooks/useJsonBinSync'
 export type { PasswordVaultStatus } from './hooks/usePasswords'
 export type { GeneratorOptions } from './utils/passwordGenerator'
