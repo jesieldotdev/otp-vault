@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Shield, KeyRound, RefreshCw, Plus, X, Lock } from 'lucide-react'
-import type { Tab } from './types'
+import type { Tab, PasswordEntry } from './types'
 import { AccountCard } from './components/AccountCard'
 import { AddForm } from './components/AddForm'
 import { SyncTab } from './components/SyncTab'
@@ -36,6 +36,14 @@ export default function App() {
     replaceAccounts(incoming)
     setTab('codes')
   }, [replaceAccounts])
+
+  const handleImportPasswords = useCallback((incoming: Omit<PasswordEntry, 'id'>[]): number => {
+    return passwords.importEntries(incoming)
+  }, [passwords])
+
+  const handleReplacePasswords = useCallback((incoming: PasswordEntry[]) => {
+    passwords.replaceEntries(incoming)
+  }, [passwords])
 
   const copyCode = useCallback((id: string, code: string) => {
     navigator.clipboard.writeText(code).catch(() => {})
@@ -147,7 +155,16 @@ export default function App() {
         )}
 
         {tab === 'sync' && (
-          <SyncTab accounts={accounts} onImport={handleImport} onReplace={handleReplace} onToast={fire} sync={sync} />
+          <SyncTab
+            accounts={accounts}
+            passwords={passwords.entries}
+            onImportAccounts={handleImport}
+            onImportPasswords={handleImportPasswords}
+            onReplaceAccounts={handleReplace}
+            onReplacePasswords={handleReplacePasswords}
+            onToast={fire}
+            sync={sync}
+          />
         )}
       </main>
 

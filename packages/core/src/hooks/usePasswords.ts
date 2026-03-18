@@ -72,5 +72,25 @@ export function usePasswords() {
     setEntries((prev) => prev.filter((e) => e.id !== id))
   }, [])
 
-  return { entries, status, error, masterPassword, unlock, lock, addEntry, updateEntry, deleteEntry }
+  /** Import passwords, merging with existing (skip duplicates by title+username) */
+  const importEntries = useCallback((incoming: Omit<PasswordEntry, 'id'>[]): number => {
+    const existingKeys = new Set(entries.map((e) => `${e.title}::${e.username}`))
+    const news = incoming
+      .filter((e) => !existingKeys.has(`${e.title}::${e.username}`))
+      .map((e) => ({
+        ...e,
+        id: crypto.randomUUID(),
+        createdAt: e.createdAt ?? Date.now(),
+        updatedAt: e.updatedAt ?? Date.now(),
+      }))
+    setEntries((prev) => [...prev, ...news])
+    return news.length
+  }, [entries])
+
+  /** Replace all passwords (used by JSONBin pull) */
+  const replaceEntries = useCallback((incoming: PasswordEntry[]) => {
+    setEntries(incoming)
+  }, [])
+
+  return { entries, status, error, masterPassword, unlock, lock, addEntry, updateEntry, deleteEntry, importEntries, replaceEntries }
 }

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { Account } from '../types'
+import type { Account, PasswordEntry, VaultPayload } from '../types'
 import { encryptVault, decryptVault } from '../utils/crypto'
 import { useStorage } from '../storage/StorageContext'
 import { pushToBin, pullFromBin } from '../utils/jsonbin'
@@ -13,6 +13,11 @@ export interface JsonBinConfig {
   binId: string | null
 }
 
+export interface PulledVault {
+  accounts: Account[]
+  passwords: PasswordEntry[]
+}
+
 export interface UseJsonBinSyncReturn {
   config: JsonBinConfig | null
   status: SyncStatus
@@ -21,8 +26,8 @@ export interface UseJsonBinSyncReturn {
   loading: boolean
   configure: (apiKey: string, binId: string | null) => Promise<void>
   disconnect: () => Promise<void>
-  push: (accounts: Account[], password: string) => Promise<boolean>
-  pull: (password: string) => Promise<Account[] | null>
+  push: (accounts: Account[], passwords: PasswordEntry[], password: string) => Promise<boolean>
+  pull: (password: string) => Promise<PulledVault | null>
 }
 
 function sanitizeBinId(raw: string): string {
@@ -83,16 +88,17 @@ export function useJsonBinSync(): UseJsonBinSyncReturn {
     setLastSyncedAt(null)
   }, [storage])
 
-  const push = useCallback(async (accounts: Account[], password: string): Promise<boolean> => {
+  const push = useCallback(async (accounts: Account[], passwords: PasswordEntry[], password: string): Promise<boolean> => {
     const cfg = configRef.current
     if (!cfg?.apiKey) { setErr('Configure a API Key primeiro.'); return false }
     setStatus('syncing')
     setErrorMsg(null)
     try {
-      const encrypted = await encryptVault(
-        accounts.map(({ id: _id, ...rest }) => rest),
-        password,
-      )
+      const payload: VaultPayload = {
+        accounts: accounts.map(({ id: _id, ...rest }) => rest),
+        passwords: passwords.map(({ id: _id, ...rest }) => rest),
+      }
+      const encrypted = await encryptVault(payload, password)
       const result = await pushToBin(cfg, encrypted)
       if (!result.ok) { setErr(result.error ?? 'Erro desconhecido'); return false }
 
@@ -112,7 +118,7 @@ export function useJsonBinSync(): UseJsonBinSyncReturn {
     }
   }, [setErr, storage])
 
-  const pull = useCallback(async (password: string): Promise<Account[] | null> => {
+  const pull = useCallback(async (password: string): Promise<PulledVault | null> => {
     const cfg = configRef.current
     if (!cfg?.apiKey || !cfg.binId) { setErr('Configure API Key e Bin ID primeiro.'); return null }
     setStatus('syncing')
@@ -122,9 +128,24 @@ export function useJsonBinSync(): UseJsonBinSyncReturn {
       if (!result.ok || !result.payload) { setErr(result.error ?? 'Vault vazia'); return null }
 
       const decrypted = await decryptVault(result.payload, password)
-      if (!Array.isArray(decrypted)) throw new Error('Formato de vault inválido')
+      
+      // Compatibilidade: formato antigo (array simples) vs novo (VaultPayload)
+      let rawAccounts: Record<string, unknown>[]
+      let rawPasswords: Record<string, unknown>[] = []
+      
+      if (Array.isArray(decrypted)) {
+        // Formato antigo: apenas accounts
+        rawAccounts = decrypted as Record<string, unknown>[]
+      } else if (typeof decrypted === 'object' && decrypted !== null) {
+        // Formato novo: VaultPayload
+        const payload = decrypted as { accounts?: unknown[]; passwords?: unknown[] }
+        rawAccounts = (payload.accounts ?? []) as Record<string, unknown>[]
+        rawPasswords = (payload.passwords ?? []) as Record<string, unknown>[]
+      } else {
+        throw new Error('Formato de vault inválido')
+      }
 
-      const accounts = (decrypted as Record<string, unknown>[]).map((a) => ({
+      const accounts = rawAccounts.map((a) => ({
         id: crypto.randomUUID(),
         issuer: String(a.issuer ?? ''),
         label: String(a.label ?? ''),
@@ -133,9 +154,20 @@ export function useJsonBinSync(): UseJsonBinSyncReturn {
         digits: Number(a.digits ?? 6),
       })) as Account[]
 
+      const passwords = rawPasswords.map((p) => ({
+        id: crypto.randomUUID(),
+        title: String(p.title ?? ''),
+        username: String(p.username ?? ''),
+        password: String(p.password ?? ''),
+        url: String(p.url ?? ''),
+        notes: String(p.notes ?? ''),
+        createdAt: Number(p.createdAt ?? Date.now()),
+        updatedAt: Number(p.updatedAt ?? Date.now()),
+      })) as PasswordEntry[]
+
       setStatus('ok')
       setLastSyncedAt(new Date())
-      return accounts
+      return { accounts, passwords }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erro ao descriptografar'
       setErr(msg.includes('decrypt') || msg.includes('operation') ? 'Senha incorreta.' : msg)

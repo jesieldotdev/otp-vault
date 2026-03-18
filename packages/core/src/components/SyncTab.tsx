@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Upload, Download, AlertTriangle, Cloud, CloudOff, RefreshCw, Loader, CheckCircle, XCircle, Unlink, Eye, EyeOff } from 'lucide-react'
-import type { Account } from '../types'
+import type { Account, PasswordEntry } from '../types'
 import { exportVault, parseVaultJSON } from '../utils/storage'
 import type { UseJsonBinSyncReturn } from '../hooks/useJsonBinSync'
 
 interface SyncTabProps {
   accounts: Account[]
-  onImport: (accounts: Omit<Account, 'id'>[]) => number
-  onReplace: (accounts: Account[]) => void
+  passwords: PasswordEntry[]
+  onImportAccounts: (accounts: Omit<Account, 'id'>[]) => number
+  onImportPasswords: (passwords: Omit<PasswordEntry, 'id'>[]) => number
+  onReplaceAccounts: (accounts: Account[]) => void
+  onReplacePasswords: (passwords: PasswordEntry[]) => void
   onToast: (msg: string) => void
   sync: UseJsonBinSyncReturn
 }
@@ -68,7 +71,7 @@ function StatusBadge({ status, errorMsg }: { status: UseJsonBinSyncReturn['statu
   )
 }
 
-export function SyncTab({ accounts, onImport, onReplace, onToast, sync }: SyncTabProps) {
+export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswords, onReplaceAccounts, onReplacePasswords, onToast, sync }: SyncTabProps) {
   // ── Local JSON ──
   const [importText, setImportText] = useState('')
   const [importErr, setImportErr] = useState('')
@@ -84,7 +87,7 @@ export function SyncTab({ accounts, onImport, onReplace, onToast, sync }: SyncTa
   const [showPassword, setShowPassword] = useState(false)
 
   const handleExport = () => {
-    exportVault(accounts)
+    exportVault(accounts, passwords)
     onToast('✓ Exportado com sucesso!')
   }
 
@@ -92,10 +95,16 @@ export function SyncTab({ accounts, onImport, onReplace, onToast, sync }: SyncTa
     setImportErr('')
     try {
       const parsed = parseVaultJSON(importText)
-      if (!parsed.length) throw new Error('nenhuma conta válida encontrada')
-      const added = onImport(parsed)
+      if (!parsed.accounts.length && !parsed.passwords.length) {
+        throw new Error('nenhuma conta ou senha válida encontrada')
+      }
+      const addedAccounts = parsed.accounts.length > 0 ? onImportAccounts(parsed.accounts) : 0
+      const addedPasswords = parsed.passwords.length > 0 ? onImportPasswords(parsed.passwords) : 0
       setImportText('')
-      onToast(`✓ ${added} conta(s) importada(s)!`)
+      const msgs: string[] = []
+      if (addedAccounts > 0) msgs.push(`${addedAccounts} conta(s)`)
+      if (addedPasswords > 0) msgs.push(`${addedPasswords} senha(s)`)
+      onToast(`✓ Importado: ${msgs.join(' e ') || 'nenhum item novo'}`)
     } catch (e) {
       setImportErr('Erro: ' + (e instanceof Error ? e.message : String(e)))
     }
@@ -111,9 +120,10 @@ export function SyncTab({ accounts, onImport, onReplace, onToast, sync }: SyncTa
   const handlePush = async () => {
     if (!password) return setConfigErr('Digite a senha mestre para criptografar.')
     setConfigErr('')
-    const ok = await sync.push(accounts, password)
+    const ok = await sync.push(accounts, passwords, password)
     if (ok) {
-      onToast('✓ Vault enviada para o JSONBin!')
+      const total = accounts.length + passwords.length
+      onToast(`✓ Vault enviada (${accounts.length} conta(s), ${passwords.length} senha(s))!`)
     }
   }
 
@@ -122,13 +132,15 @@ export function SyncTab({ accounts, onImport, onReplace, onToast, sync }: SyncTa
     setConfigErr('')
     const pulled = await sync.pull(password)
     if (pulled) {
-      onReplace(pulled)
-      onToast(`✓ ${pulled.length} conta(s) carregadas do JSONBin!`)
+      onReplaceAccounts(pulled.accounts)
+      onReplacePasswords(pulled.passwords)
+      onToast(`✓ Carregado: ${pulled.accounts.length} conta(s), ${pulled.passwords.length} senha(s)!`)
     }
   }
 
   const isConfigured = !!sync.config?.apiKey
-  const canSync = isConfigured && accounts.length > 0
+  const hasData = accounts.length > 0 || passwords.length > 0
+  const canSync = isConfigured && hasData
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -271,15 +283,15 @@ export function SyncTab({ accounts, onImport, onReplace, onToast, sync }: SyncTa
           <Upload size={16} style={{ marginBottom: -2 }} /> Exportar vault
         </div>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0 }}>
-          Baixa um arquivo JSON com todas suas contas.
+          Baixa um arquivo JSON com todas suas contas e senhas.
         </p>
         <button
-          style={btn(accounts.length > 0, 'linear-gradient(135deg, #10b981, #059669)')}
+          style={btn(hasData, 'linear-gradient(135deg, #10b981, #059669)')}
           onClick={handleExport}
-          disabled={accounts.length === 0}
+          disabled={!hasData}
         >
           <Upload size={14} />
-          {accounts.length > 0 ? `Exportar ${accounts.length} conta(s)` : 'Sem contas para exportar'}
+          {hasData ? `Exportar ${accounts.length} conta(s) + ${passwords.length} senha(s)` : 'Sem dados para exportar'}
         </button>
       </div>
 

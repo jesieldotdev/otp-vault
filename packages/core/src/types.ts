@@ -18,4 +18,10 @@ export interface PasswordEntry {
   updatedAt: number
 }
 
+/** Payload completo da vault para sync/export */
+export interface VaultPayload {
+  accounts: Omit<Account, 'id'>[]
+  passwords: Omit<PasswordEntry, 'id'>[]
+}
+
 export type Tab = 'codes' | 'passwords' | 'sync'
