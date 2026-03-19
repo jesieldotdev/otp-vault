@@ -167,9 +167,14 @@ export default function App({ jsonbinProvider = null, gdriveProvider = null }: A
                 <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Clique em "Adicionar" para começar</div>
               </div>
             ) : (
+              <div style={{
+                maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10,
+              }}>{
               accounts.map((acc) => (
                 <AccountCard key={acc.id} account={acc} onDelete={handleDelete} onCopy={copyCode} justCopied={copied === acc.id} />
               ))
+
+             } </div>
             )}
           </>
         )}

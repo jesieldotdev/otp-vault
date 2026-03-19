@@ -9,3 +9,5 @@ dist-ssr
 .pnp
 .vercel
 .env*.local
+dist.crx
+dist.pem

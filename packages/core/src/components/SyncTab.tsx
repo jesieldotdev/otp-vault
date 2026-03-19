@@ -191,7 +191,7 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
   const hasBinId = sync.activeProvider === 'gdrive' || !!sync.jsonbin?.getConfig()?.binId
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 , maxHeight: '70vh', overflowY: 'auto', paddingRight: 4 }}>
 
       {/* ── Cloud Sync ── */}
       {!isConfigured ? (
