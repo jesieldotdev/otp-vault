@@ -8,9 +8,9 @@ interface SyncTabProps {
   accounts: Account[]
   passwords: PasswordEntry[]
   onImportAccounts: (accounts: Omit<Account, 'id'>[]) => number
-  onImportPasswords: (passwords: Omit<PasswordEntry, 'id'>[]) => number
+  onImportPasswords: (passwords: Omit<PasswordEntry, 'id'>[], masterPassword?: string) => Promise<number>
   onReplaceAccounts: (accounts: Account[]) => void
-  onReplacePasswords: (passwords: PasswordEntry[]) => void
+  onReplacePasswords: (passwords: PasswordEntry[], masterPassword: string) => void
   onToast: (msg: string) => void
   sync: UseJsonBinSyncReturn
 }
@@ -132,7 +132,7 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
     onToast('✓ Exportado com sucesso!')
   }
 
-  const handleImport = () => {
+  const handleImport = async () => {
     setImportErr('')
     try {
       const parsed = parseVaultJSON(importText)
@@ -140,7 +140,7 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
         throw new Error('nenhuma conta ou senha válida encontrada')
       }
       const addedAccounts = parsed.accounts.length > 0 ? onImportAccounts(parsed.accounts) : 0
-      const addedPasswords = parsed.passwords.length > 0 ? onImportPasswords(parsed.passwords) : 0
+      const addedPasswords = parsed.passwords.length > 0 ? await onImportPasswords(parsed.passwords, password || undefined) : 0
       setImportText('')
       const msgs: string[] = []
       if (addedAccounts > 0) msgs.push(`${addedAccounts} conta(s)`)
@@ -173,7 +173,7 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
     const pulled = await sync.pull(password)
     if (pulled) {
       onReplaceAccounts(pulled.accounts)
-      onReplacePasswords(pulled.passwords)
+      onReplacePasswords(pulled.passwords, password)
       onToast(`✓ Carregado: ${pulled.accounts.length} conta(s), ${pulled.passwords.length} senha(s)!`)
     }
   }

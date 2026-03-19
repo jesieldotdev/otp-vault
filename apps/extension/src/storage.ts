@@ -7,53 +7,38 @@ function chromeGet(area: chrome.storage.StorageArea, key: string): Promise<strin
     area.get([key], (result) => resolve(result[key] ?? null))
   })
 }
-
 function chromeSet(area: chrome.storage.StorageArea, key: string, value: string): Promise<void> {
-  return new Promise((resolve) => {
-    area.set({ [key]: value }, resolve)
-  })
+  return new Promise((resolve) => { area.set({ [key]: value }, resolve) })
 }
-
 function chromeRemove(area: chrome.storage.StorageArea, key: string): Promise<void> {
-  return new Promise((resolve) => {
-    area.remove(key, resolve)
-  })
+  return new Promise((resolve) => { area.remove(key, resolve) })
 }
 
-/**
- * Extension adapter:
- * - local  → chrome.storage.local  (accounts, up to 5MB, device-only)
- * - sync   → chrome.storage.sync   (config, syncs via Google account)
- *
- * Falls back to localStorage in dev mode (npm run dev outside extension).
- */
 export const extensionStorage: StorageAdapter = {
   local: {
-    async get(key) {
-      if (isChromeExt) return chromeGet(chrome.storage.local, key)
-      return localStorage.getItem(key)
-    },
-    async set(key, value) {
-      if (isChromeExt) return chromeSet(chrome.storage.local, key, value)
-      localStorage.setItem(key, value)
-    },
-    async remove(key) {
-      if (isChromeExt) return chromeRemove(chrome.storage.local, key)
-      localStorage.removeItem(key)
-    },
+    async get(key) { return isChromeExt ? chromeGet(chrome.storage.local, key) : localStorage.getItem(key) },
+    async set(key, value) { return isChromeExt ? chromeSet(chrome.storage.local, key, value) : void localStorage.setItem(key, value) },
+    async remove(key) { return isChromeExt ? chromeRemove(chrome.storage.local, key) : void localStorage.removeItem(key) },
   },
   sync: {
+    async get(key) { return isChromeExt ? chromeGet(chrome.storage.sync, key) : localStorage.getItem(key) },
+    async set(key, value) { return isChromeExt ? chromeSet(chrome.storage.sync, key, value) : void localStorage.setItem(key, value) },
+    async remove(key) { return isChromeExt ? chromeRemove(chrome.storage.sync, key) : void localStorage.removeItem(key) },
+  },
+  // Extension: chrome.storage.session — persists while browser is open, clears on browser close
+  // Popup close does NOT clear it — perfect for caching master password
+  session: {
     async get(key) {
-      if (isChromeExt) return chromeGet(chrome.storage.sync, key)
-      return localStorage.getItem(key)
+      if (isChromeExt && chrome.storage.session) return chromeGet(chrome.storage.session, key)
+      return sessionStorage.getItem(key)
     },
     async set(key, value) {
-      if (isChromeExt) return chromeSet(chrome.storage.sync, key, value)
-      localStorage.setItem(key, value)
+      if (isChromeExt && chrome.storage.session) return chromeSet(chrome.storage.session, key, value)
+      sessionStorage.setItem(key, value)
     },
     async remove(key) {
-      if (isChromeExt) return chromeRemove(chrome.storage.sync, key)
-      localStorage.removeItem(key)
+      if (isChromeExt && chrome.storage.session) return chromeRemove(chrome.storage.session, key)
+      sessionStorage.removeItem(key)
     },
   },
 }

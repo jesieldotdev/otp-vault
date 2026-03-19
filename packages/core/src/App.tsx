@@ -44,13 +44,25 @@ export default function App() {
     setTab('codes')
   }, [replaceAccounts])
 
-  const handleImportPasswords = useCallback((incoming: Omit<PasswordEntry, 'id'>[]): number => {
+  const handleImportPasswords = useCallback(async (incoming: Omit<PasswordEntry, 'id'>[], masterPassword?: string): Promise<number> => {
+    // Se vault locked e senha fornecida, desbloqueia antes de importar
+    if (passwords.status !== 'unlocked' && masterPassword) {
+      const ok = await passwords.unlock(masterPassword)
+      if (!ok) return 0
+    }
+    if (passwords.status !== 'unlocked') return 0 // sem senha, não importa
     const count = passwords.importEntries(incoming)
     if (count > 0) sync.markLocalChanges()
     return count
   }, [passwords, sync])
 
-  const handleReplacePasswords = useCallback((incoming: PasswordEntry[]) => {
+  // Ao fazer pull, pode ser que o vault de senhas esteja locked/first-use.
+  // Nesse caso, desbloqueia com a senha do pull antes de salvar.
+  const handleReplacePasswords = useCallback(async (incoming: PasswordEntry[], masterPassword: string) => {
+    if (passwords.status !== 'unlocked') {
+      const ok = await passwords.unlock(masterPassword)
+      if (!ok) return // senha errada — não sobrescreve
+    }
     passwords.replaceEntries(incoming)
   }, [passwords])
 
