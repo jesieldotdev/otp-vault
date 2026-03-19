@@ -32,7 +32,19 @@ export { generatePassword, passwordStrength } from './utils/passwordGenerator'
 
 // Types
 export type { Account, PasswordEntry, Tab, VaultPayload, SyncVersionInfo } from './types'
-export type { JsonBinConfig, UseJsonBinSyncReturn, SyncStatus, PulledVault } from './hooks/useJsonBinSync'
+export type { JsonBinConfig } from './cloud/JsonBinProvider'
 export type { PasswordVaultStatus } from './hooks/usePasswords'
 export type { GeneratorOptions } from './utils/passwordGenerator'
 export type { ParsedVault } from './utils/storage'
+
+// Cloud providers
+export { JsonBinProvider } from './cloud/JsonBinProvider'
+export { GoogleDriveProvider } from './cloud/GoogleDriveProvider'
+export type { CloudProvider } from './cloud/CloudProvider'
+
+// Cloud sync hook
+export { useCloudSync } from './hooks/useCloudSync'
+export type { UseCloudSyncReturn, SyncStatus, ActiveProvider, PulledVault } from './hooks/useCloudSync'
+
+// Sync UI
+export { SyncProviderPicker, ActiveProviderBadge } from './components/SyncProviderPicker'
