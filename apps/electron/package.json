@@ -40,7 +40,7 @@
       "dist-electron/**/*"
     ],
     "linux": {
-      "target": ["AppImage", "deb"]
+      "target": ["AppImage", "deb", "rpm"]
     },
     "mac": {
       "target": ["dmg", "zip"],
