@@ -22,6 +22,7 @@ const files = [
   'apps/web/package.json',
   'apps/extension/package.json',
   'apps/extension/public/manifest.json',
+  'apps/electron/package.json',
 ]
 
 function readJSON(path) {

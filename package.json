@@ -8,9 +8,12 @@
   "scripts": {
     "dev:web": "yarn workspace @otp-vault/web dev",
     "dev:ext": "yarn workspace @otp-vault/extension dev",
+    "dev:electron": "yarn workspace @otp-vault/electron dev",
     "build:web": "yarn workspace @otp-vault/web build",
     "build:ext": "yarn workspace @otp-vault/extension build",
-    "build": "yarn build:web && yarn build:ext",
+    "build:electron": "yarn workspace @otp-vault/electron build",
+    "build": "yarn build:web && yarn build:ext && yarn build:electron",
+    "dist:electron": "yarn workspace @otp-vault/electron dist",
     "deploy:ext": "yarn dlx vercel --prod",
     "version:sync": "node scripts/sync-version.mjs",
     "version:patch": "node scripts/sync-version.mjs patch",
