@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["src", "electron", "../../packages/core/src"],
+  "compilerOptions": {
+    "paths": {
+      "@otp-vault/core": ["../../packages/core/src/index.ts"],
+      "@otp-vault/core/*": ["../../packages/core/src/*"]
+    }
+  }
+}
