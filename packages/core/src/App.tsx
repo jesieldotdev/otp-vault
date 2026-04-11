@@ -7,18 +7,26 @@ import { SyncTab } from './components/SyncTab'
 import { PasswordTab } from './components/PasswordTab'
 import { Toast } from './components/Toast'
 import { useToast } from './hooks/useToast'
-import { useJsonBinSync } from './hooks/useJsonBinSync'
+import { useCloudSync } from './hooks/useCloudSync'
 import { useAccounts } from './hooks/useAccounts'
 import { usePasswords } from './hooks/usePasswords'
+import type { JsonBinProvider } from './cloud/JsonBinProvider'
+import type { GoogleDriveProvider } from './cloud/GoogleDriveProvider'
 
-export default function App() {
+interface AppProps {
+  jsonbinProvider?: JsonBinProvider | null
+  gdriveProvider?:  GoogleDriveProvider | null
+}
+
+export default function App({ jsonbinProvider = null, gdriveProvider = null }: AppProps) {
   const { accounts, loaded, addAccount, deleteAccount, importAccounts, replaceAccounts } = useAccounts()
   const passwords = usePasswords()
-  const [adding, setAdding]   = useState(false)
-  const [tab, setTab]         = useState<Tab>('codes')
-  const [copied, setCopied]   = useState<string | null>(null)
-  const { message, fire }     = useToast()
-  const sync                  = useJsonBinSync()
+  const sync      = useCloudSync(jsonbinProvider, gdriveProvider)
+
+  const [adding, setAdding] = useState(false)
+  const [tab,    setTab]    = useState<Tab>('codes')
+  const [copied, setCopied] = useState<string | null>(null)
+  const { message, fire }   = useToast()
 
   const handleAdd = useCallback((data: Parameters<typeof addAccount>[0]) => {
     addAccount(data)
@@ -34,8 +42,8 @@ export default function App() {
 
   const handleImport = useCallback((incoming: Parameters<typeof importAccounts>[0]): number => {
     const count = importAccounts(incoming)
-    setTab('codes')
     if (count > 0) sync.markLocalChanges()
+    setTab('codes')
     return count
   }, [importAccounts, sync])
 
@@ -45,28 +53,24 @@ export default function App() {
   }, [replaceAccounts])
 
   const handleImportPasswords = useCallback(async (incoming: Omit<PasswordEntry, 'id'>[], masterPassword?: string): Promise<number> => {
-    // Se vault locked e senha fornecida, desbloqueia antes de importar
     if (passwords.status !== 'unlocked' && masterPassword) {
       const ok = await passwords.unlock(masterPassword)
       if (!ok) return 0
     }
-    if (passwords.status !== 'unlocked') return 0 // sem senha, não importa
+    if (passwords.status !== 'unlocked') return 0
     const count = passwords.importEntries(incoming)
     if (count > 0) sync.markLocalChanges()
     return count
   }, [passwords, sync])
 
-  // Ao fazer pull, pode ser que o vault de senhas esteja locked/first-use.
-  // Nesse caso, desbloqueia com a senha do pull antes de salvar.
   const handleReplacePasswords = useCallback(async (incoming: PasswordEntry[], masterPassword: string) => {
     if (passwords.status !== 'unlocked') {
       const ok = await passwords.unlock(masterPassword)
-      if (!ok) return // senha errada — não sobrescreve
+      if (!ok) return
     }
     passwords.replaceEntries(incoming)
   }, [passwords])
 
-  // Wrappers para senhas que marcam mudanças locais
   const handleAddPassword = useCallback((data: Parameters<typeof passwords.addEntry>[0]) => {
     passwords.addEntry(data)
     sync.markLocalChanges()
@@ -91,8 +95,8 @@ export default function App() {
   if (!loaded) return null
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'codes',     label: 'Códigos',  icon: <KeyRound size={14} /> },
-    { id: 'passwords', label: 'Senhas',   icon: <Lock size={14} /> },
+    { id: 'codes',     label: 'Códigos',     icon: <KeyRound size={14} /> },
+    { id: 'passwords', label: 'Senhas',      icon: <Lock size={14} /> },
     { id: 'sync',      label: 'Sincronizar', icon: <RefreshCw size={14} style={sync.status === 'syncing' ? { animation: 'spin 1s linear infinite' } : {}} /> },
   ]
 
@@ -110,16 +114,13 @@ export default function App() {
         </div>
 
         {tab === 'codes' && (
-          <button
-            onClick={() => setAdding((v) => !v)}
-            style={{
-              background: adding ? 'rgba(99,102,241,.15)' : 'linear-gradient(135deg, #6366f1, #a855f7)',
-              border: adding ? '1px solid rgba(99,102,241,.4)' : 'none',
-              color: '#fff', borderRadius: 'var(--radius-sm)', padding: '8px 15px',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '.01em',
-              transition: 'all .2s', display: 'flex', alignItems: 'center', gap: 6,
-            }}
-          >
+          <button onClick={() => setAdding((v) => !v)} style={{
+            background: adding ? 'rgba(99,102,241,.15)' : 'linear-gradient(135deg, #6366f1, #a855f7)',
+            border: adding ? '1px solid rgba(99,102,241,.4)' : 'none',
+            color: '#fff', borderRadius: 'var(--radius-sm)', padding: '8px 15px',
+            fontSize: 13, fontWeight: 700, cursor: 'pointer', letterSpacing: '.01em',
+            transition: 'all .2s', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
             {adding ? <X size={16} /> : <Plus size={16} />}
             {adding ? 'Cancelar' : 'Adicionar'}
           </button>
@@ -129,21 +130,17 @@ export default function App() {
       {/* Tabs */}
       <nav style={{ width: '100%', maxWidth: 520, padding: '0 20px 16px', display: 'flex', gap: 6 }}>
         {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            style={{
-              background: tab === t.id ? 'rgba(99,102,241,.18)' : 'transparent',
-              border: `1px solid ${tab === t.id ? 'rgba(99,102,241,.45)' : 'rgba(255,255,255,.07)'}`,
-              color: tab === t.id ? '#a5b4fc' : 'rgba(255,255,255,.32)',
-              borderRadius: 9, padding: '6px 14px', fontSize: 12, fontWeight: 600,
-              cursor: 'pointer', transition: 'all .2s',
-              display: 'flex', alignItems: 'center', gap: 6, position: 'relative',
-            }}
-          >
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            background: tab === t.id ? 'rgba(99,102,241,.18)' : 'transparent',
+            border: `1px solid ${tab === t.id ? 'rgba(99,102,241,.45)' : 'rgba(255,255,255,.07)'}`,
+            color: tab === t.id ? '#a5b4fc' : 'rgba(255,255,255,.32)',
+            borderRadius: 9, padding: '6px 14px', fontSize: 12, fontWeight: 600,
+            cursor: 'pointer', transition: 'all .2s',
+            display: 'flex', alignItems: 'center', gap: 6, position: 'relative',
+          }}>
             {t.icon}
             {t.label}
-            {t.id === 'sync' && sync.config?.apiKey && (
+            {t.id === 'sync' && sync.activeProvider && (
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: sync.status === 'error' ? '#f43f5e' : '#10b981', flexShrink: 0 }} />
             )}
             {t.id === 'passwords' && passwords.status === 'unlocked' && passwords.entries.length > 0 && (
@@ -170,9 +167,14 @@ export default function App() {
                 <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Clique em "Adicionar" para começar</div>
               </div>
             ) : (
+              <div style={{
+                maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10,
+              }}>{
               accounts.map((acc) => (
                 <AccountCard key={acc.id} account={acc} onDelete={handleDelete} onCopy={copyCode} justCopied={copied === acc.id} />
               ))
+
+             } </div>
             )}
           </>
         )}
@@ -205,7 +207,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Version badge */}
       <div style={{ width: '100%', maxWidth: 520, padding: '12px 16px 20px', display: 'flex', justifyContent: 'center' }}>
         <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
           OTP Vault v{__APP_VERSION__}

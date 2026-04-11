@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Upload, Download, AlertTriangle, Cloud, CloudOff, RefreshCw, Loader, CheckCircle, XCircle, Unlink, Eye, EyeOff } from 'lucide-react'
 import type { Account, PasswordEntry } from '../types'
 import { exportVault, parseVaultJSON } from '../utils/storage'
-import type { UseJsonBinSyncReturn } from '../hooks/useJsonBinSync'
+import type { UseCloudSyncReturn } from '../hooks/useCloudSync'
+import { SyncProviderPicker, ActiveProviderBadge } from './SyncProviderPicker'
 
 interface SyncTabProps {
   accounts: Account[]
@@ -12,7 +13,7 @@ interface SyncTabProps {
   onReplaceAccounts: (accounts: Account[]) => void
   onReplacePasswords: (passwords: PasswordEntry[], masterPassword: string) => void
   onToast: (msg: string) => void
-  sync: UseJsonBinSyncReturn
+  sync: UseCloudSyncReturn
 }
 
 const cardStyle: React.CSSProperties = {
@@ -184,35 +185,37 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
     await sync.checkRemoteVersion(password)
   }
 
-  const isConfigured = !!sync.config?.apiKey
+  const isConfigured = !!sync.activeProvider
   const hasData = accounts.length > 0 || passwords.length > 0
   const canSync = isConfigured && hasData
-  const hasBinId = !!sync.config?.binId
+  const hasBinId = sync.activeProvider === 'gdrive' || !!sync.jsonbin?.getConfig()?.binId
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 , maxHeight: '70vh', overflowY: 'auto', paddingRight: 4 }}>
 
-      {/* ── JSONBin Cloud Sync ── */}
-      <div style={{ ...cardStyle, border: isConfigured ? '1px solid rgba(99,102,241,0.35)' : '1px solid var(--border)', background: isConfigured ? 'rgba(99,102,241,0.06)' : 'var(--surface)' }}>
+      {/* ── Cloud Sync ── */}
+      {!isConfigured ? (
+        <SyncProviderPicker sync={sync} />
+      ) : (
+      <div style={{ ...cardStyle, border: '1px solid rgba(99,102,241,0.35)', background: 'rgba(99,102,241,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
           <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 7 }}>
-            {isConfigured ? <Cloud size={16} color="#a5b4fc" /> : <CloudOff size={16} color="rgba(255,255,255,0.35)" />}
-            Sync via JSONBin
+            <Cloud size={16} color="#a5b4fc" />
+            Sincronização
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <StatusBadge status={sync.status} errorMsg={sync.errorMsg} />
             <VersionBadge versionInfo={sync.versionInfo} />
-            {isConfigured && (
-              <button
-                onClick={() => { sync.disconnect(); setApiKeyInput(''); setBinIdInput('') }}
-                title="Desconectar"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', padding: 2 }}
-              >
-                <Unlink size={14} />
-              </button>
-            )}
+            <button
+              onClick={() => { sync.disconnect(); setApiKeyInput(''); setBinIdInput('') }}
+              title="Desconectar"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', padding: 2 }}
+            >
+              <Unlink size={14} />
+            </button>
           </div>
         </div>
+        <ActiveProviderBadge sync={sync} onDisconnect={() => { sync.disconnect(); setApiKeyInput(''); setBinIdInput('') }} />
 
         {sync.lastSyncedAt && (
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: 0 }}>
@@ -220,47 +223,7 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
           </p>
         )}
 
-        {/* Config fields */}
-        {!isConfigured && (
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0 }}>
-            Sincronize sua vault criptografada (AES-256) entre dispositivos via <strong style={{ color: 'rgba(255,255,255,0.6)' }}>jsonbin.io</strong>. Crie uma conta gratuita e gere uma Master Key.
-          </p>
-        )}
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {/* API Key */}
-          <div style={{ position: 'relative' }}>
-            <input
-              style={{ ...inputStyle, paddingRight: 40, fontFamily: 'var(--font-mono)', fontSize: 12 }}
-              type={showApiKey ? 'text' : 'password'}
-              placeholder="Master Key  ($2a$10$...)"
-              value={apiKeyInput}
-              onChange={(e) => setApiKeyInput(e.target.value)}
-              spellCheck={false}
-            />
-            <button
-              onClick={() => setShowApiKey(v => !v)}
-              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', padding: 0 }}
-            >
-              {showApiKey ? <EyeOff size={15} /> : <Eye size={15} />}
-            </button>
-          </div>
-
-          {/* Bin ID */}
-          <input
-            style={{ ...inputStyle, fontFamily: 'var(--font-mono)', fontSize: 12 }}
-            placeholder="Bin ID (opcional — deixe em branco para criar novo)"
-            value={binIdInput}
-            onChange={(e) => setBinIdInput(e.target.value)}
-            spellCheck={false}
-          />
-
-          {!isConfigured && (
-            <button style={btn(!!apiKeyInput.trim())} onClick={handleConfigure} disabled={!apiKeyInput.trim()}>
-              <Cloud size={14} /> Conectar
-            </button>
-          )}
-
           {isConfigured && (
             <>
               {/* Senha mestre */}
@@ -331,8 +294,7 @@ export function SyncTab({ accounts, passwords, onImportAccounts, onImportPasswor
           <p style={{ color: '#f87171', fontSize: 12, margin: 0 }}>{sync.errorMsg}</p>
         )}
       </div>
-
-      {/* ── Divider ── */}
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>ou via arquivo</span>

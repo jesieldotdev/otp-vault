@@ -179,15 +179,18 @@ export function PasswordTab({ entries, status, error, onUnlock, onLock, onAdd, o
           </div>
         </div>
       ) : (
-        filtered.map((entry) => (
-          <PasswordCard
-            key={entry.id}
-            entry={entry}
-            onDelete={(id) => { onDelete(id); onToast('Senha removida.') }}
-            onEdit={(e) => { setEditing(e); setAdding(false) }}
-            onToast={onToast}
-          />
-        ))
+
+        <div style={{ maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {filtered.map((entry) => (
+            <PasswordCard
+              key={entry.id}
+              entry={entry}
+              onDelete={(id) => { onDelete(id); onToast('Senha removida.') }}
+              onEdit={(e) => { setEditing(e); setAdding(false) }}
+              onToast={onToast}
+            />
+          ))}
+        </div>
       )}
     </div>
   )
