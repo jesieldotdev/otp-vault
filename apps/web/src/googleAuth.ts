@@ -2,6 +2,7 @@
  * Web OAuth token getter using Google Identity Services (GIS).
  * Loads the GIS script dynamically — no npm package needed.
  */
+import type { TokenResult } from '@otp-vault/core'
 
 declare global {
   interface Window {
@@ -30,7 +31,7 @@ function loadGISScript(): Promise<void> {
   })
 }
 
-export function makeWebTokenGetter(clientId: string): () => Promise<string | null> {
+export function makeWebTokenGetter(clientId: string): () => Promise<TokenResult> {
   return () => new Promise(async (resolve) => {
     try {
       await loadGISScript()
@@ -38,13 +39,18 @@ export function makeWebTokenGetter(clientId: string): () => Promise<string | nul
         client_id: clientId,
         scope: 'https://www.googleapis.com/auth/drive.file email profile',
         callback: (response) => {
-          if (response.access_token) resolve(response.access_token)
-          else resolve(null)
+          if (response.access_token) resolve({ token: response.access_token })
+          else {
+            if (response.error) console.error('Google login error:', response.error)
+            resolve({ token: null, error: response.error })
+          }
         },
       })
       client.requestAccessToken()
-    } catch {
-      resolve(null)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Falha ao carregar o script do Google'
+      console.error('Google login error:', message)
+      resolve({ token: null, error: message })
     }
   })
 }

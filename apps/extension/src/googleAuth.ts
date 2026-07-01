@@ -3,7 +3,9 @@
  * No external script needed — Chrome handles the OAuth flow natively.
  */
 
-export function makeExtensionTokenGetter(clientId: string): () => Promise<string | null> {
+import type { TokenResult } from '@otp-vault/core'
+
+export function makeExtensionTokenGetter(clientId: string): () => Promise<TokenResult> {
   return () => new Promise((resolve) => {
     const isChromeExt = typeof chrome !== 'undefined' && !!chrome.identity
 
@@ -13,16 +15,20 @@ export function makeExtensionTokenGetter(clientId: string): () => Promise<string
         { interactive: true, scopes: ['https://www.googleapis.com/auth/drive.file', 'email', 'profile'] },
         (token) => {
           if (chrome.runtime.lastError || !token) {
-            console.warn('chrome.identity error:', chrome.runtime.lastError?.message)
-            resolve(null)
+            const message = chrome.runtime.lastError?.message
+            console.warn('chrome.identity error:', message)
+            resolve({ token: null, error: message })
           } else {
-            resolve(token)
+            resolve({ token })
           }
         }
       )
     } else {
-      // Dev mode fallback — use web flow
-      resolve(null)
+      // Dev mode fallback — chrome.identity só existe em builds com "identity"
+      // na manifest, gerada apenas por `yarn build:ext` com VITE_GOOGLE_CLIENT_ID definido.
+      const message = 'chrome.identity indisponível. Rode "yarn build:ext" com VITE_GOOGLE_CLIENT_ID configurado e carregue a extensão a partir de dist/.'
+      console.warn(message)
+      resolve({ token: null, error: message })
     }
   })
 }

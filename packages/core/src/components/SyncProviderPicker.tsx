@@ -39,8 +39,8 @@ export function SyncProviderPicker({ sync }: Props) {
   const handleSignInGoogle = async () => {
     setSigningIn(true)
     setGoogleErr('')
-    const ok = await sync.signInGoogle()
-    if (!ok) setGoogleErr('Login cancelado ou falhou. Tente novamente.')
+    const result = await sync.signInGoogle()
+    if (!result.ok) setGoogleErr(result.error || 'Login cancelado ou falhou. Tente novamente.')
     setSigningIn(false)
   }
 

@@ -11,6 +11,11 @@ export interface GoogleDriveToken {
   email?: string
 }
 
+export interface TokenResult {
+  token: string | null
+  error?: string
+}
+
 export class GoogleDriveProvider implements CloudProvider {
   readonly id = 'gdrive' as const
   readonly name = 'Google Drive'
@@ -18,7 +23,7 @@ export class GoogleDriveProvider implements CloudProvider {
   private token: GoogleDriveToken | null = null
   private storage: StorageAdapter
   private clientId: string
-  private _getToken: (() => Promise<string | null>) | null = null
+  private _getToken: (() => Promise<TokenResult>) | null = null
 
   constructor(storage: StorageAdapter, clientId: string) {
     this.storage = storage
@@ -30,7 +35,7 @@ export class GoogleDriveProvider implements CloudProvider {
    * Web: uses Google Identity Services popup.
    * Extension: uses chrome.identity.launchWebAuthFlow.
    */
-  setTokenGetter(fn: () => Promise<string | null>) {
+  setTokenGetter(fn: () => Promise<TokenResult>) {
     this._getToken = fn
   }
 
@@ -52,10 +57,14 @@ export class GoogleDriveProvider implements CloudProvider {
     } catch {}
   }
 
-  async signIn(): Promise<boolean> {
+  async signIn(): Promise<{ ok: boolean; error?: string }> {
+    if (!this.clientId) {
+      return { ok: false, error: 'Client ID do Google não configurado. Defina VITE_GOOGLE_CLIENT_ID.' }
+    }
     if (!this._getToken) throw new Error('Token getter not set. Call setTokenGetter() first.')
-    const accessToken = await this._getToken()
-    if (!accessToken) return false
+
+    const { token: accessToken, error } = await this._getToken()
+    if (!accessToken) return { ok: false, error }
 
     // Fetch user info to get email
     let email: string | undefined
@@ -75,7 +84,7 @@ export class GoogleDriveProvider implements CloudProvider {
       email,
     }
     await this.storage.sync.set(TOKEN_KEY, JSON.stringify(this.token))
-    return true
+    return { ok: true }
   }
 
   async disconnect(): Promise<void> {
