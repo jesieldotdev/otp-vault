@@ -2,6 +2,7 @@
  * Web OAuth token getter using Google Identity Services (GIS).
  * Loads the GIS script dynamically — no npm package needed.
  */
+import type { TokenResult } from '@otp-vault/core'
 
 declare global {
   interface Window {
@@ -30,7 +31,18 @@ function loadGISScript(): Promise<void> {
   })
 }
 
-export function makeWebTokenGetter(clientId: string): () => Promise<string | null> {
+/**
+ * Carrega o script do GIS assim que o app inicia, em vez de esperar o
+ * clique do usuário. Se o script só começasse a carregar dentro do clique,
+ * o tempo de rede consumia o "user activation" e o navegador bloqueava o
+ * popup de login como se fosse um popup indesejado — mesmo com popups
+ * permitidos nas configurações do site.
+ */
+export function preloadGoogleIdentityServices(): void {
+  loadGISScript().catch(() => {})
+}
+
+export function makeWebTokenGetter(clientId: string): () => Promise<TokenResult> {
   return () => new Promise(async (resolve) => {
     try {
       await loadGISScript()
@@ -38,13 +50,18 @@ export function makeWebTokenGetter(clientId: string): () => Promise<string | nul
         client_id: clientId,
         scope: 'https://www.googleapis.com/auth/drive.file email profile',
         callback: (response) => {
-          if (response.access_token) resolve(response.access_token)
-          else resolve(null)
+          if (response.access_token) resolve({ token: response.access_token })
+          else {
+            if (response.error) console.error('Google login error:', response.error)
+            resolve({ token: null, error: response.error })
+          }
         },
       })
       client.requestAccessToken()
-    } catch {
-      resolve(null)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Falha ao carregar o script do Google'
+      console.error('Google login error:', message)
+      resolve({ token: null, error: message })
     }
   })
 }

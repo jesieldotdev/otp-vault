@@ -40,6 +40,7 @@ export type { ParsedVault } from './utils/storage'
 // Cloud providers
 export { JsonBinProvider } from './cloud/JsonBinProvider'
 export { GoogleDriveProvider } from './cloud/GoogleDriveProvider'
+export type { GoogleDriveToken, TokenResult } from './cloud/GoogleDriveProvider'
 export type { CloudProvider } from './cloud/CloudProvider'
 
 // Cloud sync hook

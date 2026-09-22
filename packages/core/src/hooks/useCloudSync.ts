@@ -39,7 +39,7 @@ export interface UseCloudSyncReturn {
 
   // Google Drive specific
   gdrive: GoogleDriveProvider | null
-  signInGoogle: () => Promise<boolean>
+  signInGoogle: () => Promise<{ ok: boolean; error?: string }>
 
   // Common
   switchProvider: (provider: ActiveProvider) => Promise<void>
@@ -131,16 +131,16 @@ export function useCloudSync(
     setErrorMsg(null)
   }, [jsonbinProvider, storage])
 
-  const signInGoogle = useCallback(async (): Promise<boolean> => {
-    if (!gdriveProvider) return false
-    const ok = await gdriveProvider.signIn()
-    if (ok) {
+  const signInGoogle = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    if (!gdriveProvider) return { ok: false, error: 'Nenhum provedor Google Drive configurado.' }
+    const result = await gdriveProvider.signIn()
+    if (result.ok) {
       setActiveProvider('gdrive')
       await storage.sync.set(PROVIDER_KEY, 'gdrive')
       setStatus('idle')
       setErrorMsg(null)
     }
-    return ok
+    return result
   }, [gdriveProvider, storage])
 
   const switchProvider = useCallback(async (provider: ActiveProvider) => {
