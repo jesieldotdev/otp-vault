@@ -31,6 +31,17 @@ function loadGISScript(): Promise<void> {
   })
 }
 
+/**
+ * Carrega o script do GIS assim que o app inicia, em vez de esperar o
+ * clique do usuário. Se o script só começasse a carregar dentro do clique,
+ * o tempo de rede consumia o "user activation" e o navegador bloqueava o
+ * popup de login como se fosse um popup indesejado — mesmo com popups
+ * permitidos nas configurações do site.
+ */
+export function preloadGoogleIdentityServices(): void {
+  loadGISScript().catch(() => {})
+}
+
 export function makeWebTokenGetter(clientId: string): () => Promise<TokenResult> {
   return () => new Promise(async (resolve) => {
     try {

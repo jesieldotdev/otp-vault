@@ -2,10 +2,12 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App, StorageProvider, JsonBinProvider, GoogleDriveProvider } from '@otp-vault/core'
 import { webStorage } from './storage'
-import { makeWebTokenGetter } from './googleAuth'
+import { makeWebTokenGetter, preloadGoogleIdentityServices } from './googleAuth'
 import './global.css'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
+
+if (GOOGLE_CLIENT_ID) preloadGoogleIdentityServices()
 
 const jsonbin = new JsonBinProvider(webStorage)
 const gdrive  = new GoogleDriveProvider(webStorage, GOOGLE_CLIENT_ID)
